@@ -1,6 +1,5 @@
 #!/bin/sh
 
-me=${SUDO_USER:-$LOGNAME}
 if test -z "$(command -v apt-get)"; then
 	echo "该脚步太烂，无法在此电脑运行。"
 	exit 1
@@ -34,5 +33,5 @@ javac ./Main.java
 if [ ! -d "./backup_crontab" ]; then
   mkdir ./backup_crontab
 fi
-sudo cp /var/spool/cron/crontabs/$me ./backup_crontab/$me_$(ls -al|grep "^-"| wc -l)
-sudo echo "45 * * * * cd $(pwd) && java Main auto" >> /var/spool/cron/crontabs/$me
+sudo cp /var/spool/cron/crontabs/$(whoami) ./backup_crontab/$(whoami)_$(ls -al|grep "^-"| wc -l)
+sudo echo "15 * * * * cd $(pwd) && java Main auto" >> /var/spool/cron/crontabs/$(whoami)
