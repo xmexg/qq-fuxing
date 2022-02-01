@@ -275,12 +275,12 @@ public class Main {
 		int whereisx = str.lastIndexOf("x");
 		str.setCharAt(whereisx, ' ');
 		System.out.println("屏幕分辨率为:"+str);
-		writefile(info_file, "屏幕分辨率为:"+str);
+		writefile(info_file, "屏幕分辨率为:"+str+"\n");
 		int x = Integer.valueOf(str.substring(0, whereisx)).intValue();
 		int y = Integer.valueOf(str.substring(whereisx+1)).intValue();
 		hutou_location = (int)(x*0.5) + " " + (int)(y*0.4);
 		System.out.println("已通过ADB更新了虎头坐标为:"+hutou_location);
-		writefile(info_file, "已通过ADB更新了虎头坐标为:"+hutou_location);
+		writefile(info_file, "已通过ADB更新了虎头坐标为:"+hutou_location+"\n");
 		return str;
 	}
 	
