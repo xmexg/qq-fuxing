@@ -10,6 +10,7 @@ import java.io.Writer;
 public class Main {
 	public static String lijiqianwang_location = "570 780";// 运行前要填入“立即前往”按钮的x，y坐标
 	public static String hutou_location = "550 1010";// 运行前要填入“虎头”按钮的x，y坐标
+	public static String TEMP_location = "550 1010";// 运行前要填入“虎头”按钮的x，y坐标
 	public static String info_file = "info";// 日志
 
 	public static void main(String[] args) throws IOException, InterruptedException {
@@ -116,30 +117,43 @@ public class Main {
 		writefile(info_file, "正在做一些刷新QQ的操作" + "\n");
 		commonmain("adb -s " + ip + " shell input keyevent 3", false);// 主屏键
 		Thread.sleep(5000);
-		commonmain("adb -s " + ip + " shell am start com.tencent.mobileqq/com.tencent.mobileqq.activity.SplashActivity",
-				false);
+		commonmain("adb -s " + ip + " shell am start com.tencent.mobileqq/com.tencent.mobileqq.activity.SplashActivity",false);
 		Thread.sleep(10000);
 
 		do {// 如果在QQ界面，就不断按返回键
 			commonmain("adb -s " + ip + " shell input keyevent 4", false);// 返回键
 			Thread.sleep(2000);
-		} while (getActivity(ip).equals("com.tencent.mobileqq/com.tencent.mobileqq.activity.SplashActivity"));
+		} while (getActivity(ip).indexOf("com.tencent.mobileqq")!=-1);
 
 		System.out.println("打开QQ");
 		writefile(info_file, "打开QQ" + "\n");
-		commonmain("adb -s " + ip + " shell am start com.tencent.mobileqq/com.tencent.mobileqq.activity.SplashActivity",
-				false);
+		commonmain("adb -s " + ip + " shell am start com.tencent.mobileqq/com.tencent.mobileqq.activity.SplashActivity",false);
 		Thread.sleep(10000);
 		commonmain("adb -s " + ip + " shell input swipe 600 400 600 1800 210", false);
-		Thread.sleep(5000);
-		ocr_getxy(ip, "福", 0);
+		for(int i=0;!ocr_getxy(ip, "福", 0);i++) {
+			Thread.sleep(5000);
+			if(i>5) {
+				System.out.println("未发现 立即前往 的坐标,程序已退出");
+				writefile(info_file, "未发现 立即前往 的坐标,程序已退出\n*********************************************");
+				System.exit(1);
+			}
+		}
 		commonmain("adb -s " + ip + " shell input tap " + lijiqianwang_location, false);
-		Thread.sleep(10000);
-		if (getActivity(ip).equals(
-				"com.tencent.mobileqq/com.tencent.mobileqq.spring2022.main.SpringHbTranslucentBrowserActivity")) {
+		for(int i=0;(i<3) && (!getActivity(ip).equals("com.tencent.mobileqq/com.tencent.mobileqq.spring2022.main.SpringHbTranslucentBrowserActivity"));i++) {
+			Thread.sleep(10000);			
+		}
+		if (getActivity(ip).equals("com.tencent.mobileqq/com.tencent.mobileqq.spring2022.main.SpringHbTranslucentBrowserActivity")) {
 			boolean havestars = true;
 			System.out.println("开始收集福星");
 			writefile(info_file, "开始收集福星" + "\n");
+			Thread.sleep(3000);
+			for(int i=0;(i<3)&&(!ocr_getxy(ip, "福", 1));i++){//有时会只显示虎头，不显示星星
+				commonmain("adb -s " + ip + " shell input keyevent 4", false);// 返回键
+				Thread.sleep(2000);
+				commonmain("adb -s " + ip + " shell input tap " + lijiqianwang_location, false);
+				Thread.sleep(3000);
+			}
+			getHutou_byScreenSize(ip);
 			short star = 0;
 			do {
 				commonmain("adb -s " + ip + " shell input tap " + hutou_location, false);
@@ -195,8 +209,7 @@ public class Main {
 		ADBListtxt.delete(where, where + 8);
 		if (ADBListtxt.indexOf("device") != -1) {
 			while (ADBListtxt.indexOf("device") != -1) {
-				ADBLists = ADBLists + ADBListtxt.substring(ADBListtxt.indexOf("\n") + 1, ADBListtxt.indexOf("\t"))
-						+ ",";
+				ADBLists = ADBLists + ADBListtxt.substring(ADBListtxt.indexOf("\n") + 1, ADBListtxt.indexOf("\t")) + ",";
 				ADBListtxt.delete(ADBListtxt.indexOf("\n"), ADBListtxt.indexOf("device") + 6);
 			}
 		} else {
@@ -216,8 +229,17 @@ public class Main {
 	public String getActivity(String dev) {
 		StringBuffer text = commonmain("adb -s " + dev + " shell dumpsys window | grep mCurrentFocus", false);
 		int wherestr = text.indexOf("com.");
+		if(wherestr==-1) {
+			wherestr = text.lastIndexOf(" ");
+		}
 		int whereend = text.indexOf("}", wherestr);
-		return text.substring(wherestr, whereend);
+		String activity;
+		try {
+			activity = text.substring(wherestr, whereend);
+		}catch(Exception e) {
+			activity = "ERROR_GET_ACTIVITY";
+		}
+		return activity;
 	}
 
 	public boolean canADBconnect() {
@@ -242,36 +264,64 @@ public class Main {
 		}
 		return false;
 	}
-
-	public String ocr_getxy(String ip, String string, int type) throws IOException {// 设备ip，要搜索的字，类型：0为立即前往，1为虎头.虎头效果不好，别用
+	
+	public StringBuffer getHutou_byScreenSize(String ip) throws IOException {
+		StringBuffer str = commonmain("adb -s " + ip + " shell wm size", false);
+		if(str.charAt(str.length()-1)=='\n') {//删除结尾换行符
+			str.deleteCharAt(str.length()-1);
+		}
+		int wherest = str.lastIndexOf(" ");
+		str.delete(0,wherest+1);
+		int whereisx = str.lastIndexOf("x");
+		str.setCharAt(whereisx, ' ');
+		System.out.println("屏幕分辨率为:"+str);
+		writefile(info_file, "屏幕分辨率为:"+str);
+		int x = Integer.valueOf(str.substring(0, whereisx)).intValue();
+		int y = Integer.valueOf(str.substring(whereisx+1)).intValue();
+		hutou_location = (int)(x*0.5) + " " + (int)(y*0.4);
+		System.out.println("已通过ADB更新了虎头坐标为:"+hutou_location);
+		writefile(info_file, "已通过ADB更新了虎头坐标为:"+hutou_location);
+		return str;
+	}
+	
+	public boolean ocr_getxy(String ip, String string, int type) throws IOException {// 设备ip，要搜索的字，类型：0为立即前往，1为其他
+		String fileName = "./output.box";
+		File file = new File(fileName);
+		if(!file.exists()) {
+			file.delete();
+			file.createNewFile();
+			System.out.println("删除文件");
+		}
 		commonmain("adb -s " + ip + " shell screencap -p /sdcard/QQstar.png", false);
 		commonmain("adb -s " + ip + " pull /sdcard/QQstar.png .", false);
 		commonmain("tesseract -l chi_sim ./QQstar.png output makebox", false);
-		String fileName = "./output.box";
-		File file = new File(fileName);
 		FileInputStream fis = new FileInputStream(file);
 		InputStreamReader isr = new InputStreamReader(fis, "utf-8");
 		BufferedReader br = new BufferedReader(isr);
 		String line, data[], xy = null;
 		while ((line = br.readLine()) != null) {
-			// process the line
-			if (type == 0 && line.indexOf(string) != -1) {
+			if (line.indexOf(string) != -1) {
 				data = line.split(" ");
 				xy = data[1] + " " + data[3];
-				lijiqianwang_location = xy;
-				System.out.println("通过ocr更新了立即前往的坐标 :" + lijiqianwang_location);
-				break;
-			}
-			if (type == 1 && line.indexOf(string) != -1) {
-				data = line.split(" ");
-				xy = data[1] + " " + data[3];
-				hutou_location = xy;
-				System.out.println("通过ocr更新了虎头的坐标 :" + hutou_location);
-				break;
+				switch (type) {
+				case 0 :
+					lijiqianwang_location = xy;
+					System.out.println("通过ocr更新了立即前往的坐标 :" + lijiqianwang_location);
+					writefile(info_file, "通过ocr更新了立即前往的坐标 :" + lijiqianwang_location);
+					br.close();
+					return true;
+				case 1 :
+					TEMP_location = xy;
+					br.close();
+					return true;
+				default :
+					System.out.println("没有这个选项");
+					break;
+				}
 			}
 		}
 		br.close();
-		return xy;
+		return false;
 	}
 
 	public void writefile(String fileurl, String str) throws IOException {
@@ -289,7 +339,7 @@ public class Main {
 			e.printStackTrace();
 		}
 	}
-
+	
 	public StringBuffer commonmain(String cmd, boolean echo) {
 		StringBuffer echocmd = new StringBuffer();
 		Process process;
